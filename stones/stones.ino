@@ -1,5 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
+#include "esp_sleep.h"
+#include "driver/gpio.h"
 #include "settings.h"
 #include "sensors.h"
 #include "motor.h"
@@ -42,35 +44,44 @@ void waitStill() {
   Serial.println("ready");
 }
 
-// Sit dormant (LEDs off) until the boot button is held for LONG_PRESS_TIME.
-// All LEDs flash green at the 2s mark while the button is still held.
-// Returns once the button is released after the threshold.
+// Sit dormant at ~130µA until the boot button is held for LONG_PRESS_TIME.
+// The ESP32 enters light sleep and wakes only when GPIO9 goes LOW, so the
+// CPU is not running between presses. On wake, a genuine 2s hold is required
+// before the green flash and release are accepted - spurious/short presses
+// just send the device back to sleep.
 void waitForStartup() {
   clearLED();
-  resetButtonState();
+  motorOff();
   Serial.println("dormant - hold boot button 2s to start");
-
-  bool showingGreen = false;
+  Serial.flush();
 
   while (true) {
-    bool released = checkBootButtonLongPress();
+    // Sleep until GPIO9 goes LOW (button pressed)
+    gpio_wakeup_enable((gpio_num_t)BOOT_BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    esp_light_sleep_start();
 
-    if (checkBootButtonThresholdReached()) {
-      showingGreen = true;
+    // Just woke - confirm button is actually held
+    if (digitalRead(BOOT_BUTTON_PIN) == HIGH) continue;
+
+    unsigned long pressStart = millis();
+    bool greenShown = false;
+
+    while (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+      if (!greenShown && millis() - pressStart >= LONG_PRESS_TIME) {
+        greenShown = true;
+        pixels.fill(pixels.Color(0, 255, 0));
+        pixels.setBrightness(60);
+        pixels.show();
+      }
+      delay(16);
     }
 
-    if (showingGreen) {
-      pixels.fill(pixels.Color(0, 255, 0));
-      pixels.setBrightness(60);
-      pixels.show();
-    }
-
-    if (released) {
+    if (greenShown) {
       clearLED();
-      return;
+      return;  // Valid long press confirmed - proceed to calibration
     }
-
-    delay(16);
+    // Short press - loop back and sleep again
   }
 }
 
@@ -91,11 +102,13 @@ void runShutdown() {
   pixels.show();
   motorBuzz(180);
 
-  // Wait for button release
+  // Wait for button release - 5s timeout prevents getting stuck with motor on
+  // if the pin ever reads LOW continuously (floating/noise on battery power)
+  unsigned long releaseWait = millis();
   while (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+    if (millis() - releaseWait > 5000) break;
     delay(16);
   }
-  delay(DEBOUNCE_TIME);
   motorOff();
   clearLED();
 
