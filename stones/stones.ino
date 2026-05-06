@@ -55,6 +55,10 @@ void waitForStartup() {
   Serial.println("dormant - hold boot button 2s to start");
   Serial.flush();
 
+  // Lock motor pin LOW before sleeping so the LEDC peripheral pausing/resuming
+  // on sleep/wake transitions cannot cause a motor glitch.
+  gpio_hold_en((gpio_num_t)PIN_MOTOR);
+
   while (true) {
     // Sleep until GPIO9 goes LOW (button pressed)
     gpio_wakeup_enable((gpio_num_t)BOOT_BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
@@ -78,8 +82,10 @@ void waitForStartup() {
     }
 
     if (greenShown) {
+      // Release the hold so LEDC can drive the motor again during gameplay
+      gpio_hold_dis((gpio_num_t)PIN_MOTOR);
       clearLED();
-      return;  // Valid long press confirmed - proceed to calibration
+      return;
     }
     // Short press - loop back and sleep again
   }
@@ -127,11 +133,17 @@ void setup() {
   pinMode(PIN_MOTOR, OUTPUT);
   digitalWrite(PIN_MOTOR, LOW);
 
+  // Attach LEDC before the serial delay and immediately lock the pin LOW.
+  // Without this, ledcAttach briefly drives the pin HIGH before ledcWrite(0)
+  // takes effect, causing a motor buzz on every cold boot.
+  ledcAttach(PIN_MOTOR, MOTOR_FREQ, MOTOR_RESOLUTION);
+  ledcWrite(PIN_MOTOR, 0);
+  gpio_hold_en((gpio_num_t)PIN_MOTOR);
+
   Serial.begin(115200);
   delay(2000);
 
-  ledcAttach(PIN_MOTOR, MOTOR_FREQ, MOTOR_RESOLUTION);
-  ledcWrite(PIN_MOTOR, 0);
+  gpio_hold_dis((gpio_num_t)PIN_MOTOR);
 
   Wire.begin(PIN_SDA, PIN_SCL);
   Wire.beginTransmission(MPU_ADDR);
