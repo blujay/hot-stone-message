@@ -130,6 +130,10 @@ void runShutdown() {
 // ---------------------------------------------------------------------------
 
 void setup() {
+  // Release any gpio_hold from a previous run - it persists across soft resets
+  // on ESP32-C3, so without this the motor pin can be stuck on after a reset.
+  gpio_hold_dis((gpio_num_t)PIN_MOTOR);
+
   pinMode(PIN_MOTOR, OUTPUT);
   digitalWrite(PIN_MOTOR, LOW);
 
