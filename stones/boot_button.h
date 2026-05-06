@@ -35,7 +35,7 @@ bool shutdownRequested = false;
 // Initialize boot button for reading
 // Must be called in setup()
 void initBootButton() {
-  pinMode(BOOT_BUTTON_PIN, INPUT);
+  pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
 }
 
 // Reset button state machine - call before entering a new wait loop
