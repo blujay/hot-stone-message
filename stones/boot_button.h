@@ -30,11 +30,20 @@
 unsigned long buttonPressStart = 0;
 int lastButtonState = HIGH;  // Boot button is pulled high, active low
 bool buttonThresholdFlashed = false;  // Track if we've given feedback for this press
+bool shutdownRequested = false;
 
 // Initialize boot button for reading
 // Must be called in setup()
 void initBootButton() {
   pinMode(BOOT_BUTTON_PIN, INPUT);
+}
+
+// Reset button state machine - call before entering a new wait loop
+// so stale state from a previous press doesn't carry over
+void resetButtonState() {
+  buttonPressStart = 0;
+  lastButtonState = HIGH;
+  buttonThresholdFlashed = false;
 }
 
 // Check if boot button has been long-pressed
