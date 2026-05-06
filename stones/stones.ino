@@ -9,8 +9,6 @@ int wheelR[] = {180, 0,   255, 255};
 int wheelG[] = {255, 255, 160, 20};
 int wheelB[] = {0,   200, 0,   147};
 
-bool shutdownRequested = false;
-
 int16_t readAX() {
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x3B);
@@ -43,10 +41,6 @@ int16_t readGZ() {
   return (Wire.read() << 8 | Wire.read());
 }
 
-bool isFlipped() {
-  return readAZ() < 0;
-}
-
 void getColour(int led, int &r, int &g, int &b) {
   switch(led) {
     case LED_TOP:    r=180; g=255; b=0;   break; // lime green
@@ -77,34 +71,6 @@ void gameOver() {
   pixels.show();
 }
 
-void shutdownSequence() {
-  motorOff();
-  pixels.clear();
-  pixels.show();
-
-  // Flash red to confirm shutdown
-  for (int i = 0; i < 3; i++) {
-    pixels.setBrightness(255);
-    pixels.fill(pixels.Color(255, 0, 0));
-    pixels.show();
-    ledcWrite(PIN_MOTOR, 180);
-    delay(300);
-    pixels.clear();
-    pixels.show();
-    motorOff();
-    delay(150);
-  }
-  motorOff();
-
-  // Wait until the stone is returned right-side up before allowing startup.
-  // Without this, the same held gesture that triggered shutdown immediately
-  // registers as a startup signal.
-  while (isFlipped()) {
-    delay(50);
-  }
-  delay(500); // debounce after flip
-}
-
 // same as calibrate script - just percentage in correct direction
 float getDirectionPct(int direction) {
   float ax = readAX();
@@ -133,23 +99,8 @@ bool breatheInstruct(int led, unsigned long timeLimit) {
   getColour(led, r, g, b);
   unsigned long start = millis();
   float period = timeLimit * 0.8;
-  unsigned long flipStart = 0;
 
   while (millis() - start < timeLimit) {
-
-    // Check for shutdown gesture: hold flipped for FLIP_DURATION ms
-    if (isFlipped()) {
-      if (flipStart == 0) flipStart = millis();
-      if (millis() - flipStart >= FLIP_DURATION) {
-        shutdownRequested = true;
-        motorOff();
-        pixels.clear();
-        pixels.show();
-        return false;
-      }
-    } else {
-      flipStart = 0;
-    }
 
     if (checkTilt(led)) {
       // smooth 1 second sine ramp - plays fully, nothing interrupts
@@ -285,14 +236,6 @@ void loop() {
       case 1: correct = breatheInstruct(LED_RIGHT,  timeLimit); break;
       case 2: correct = breatheInstruct(LED_TOP,    timeLimit); break;
       case 3: correct = breatheInstruct(LED_BOTTOM, timeLimit); break;
-    }
-
-    if (shutdownRequested) {
-      shutdownRequested = false;
-      Serial.println("shutdown requested - interrupted game");
-      shutdownSequence();
-      waitStill();
-      return;
     }
 
     if (correct) {
