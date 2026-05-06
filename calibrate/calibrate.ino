@@ -1,47 +1,8 @@
 #include <Wire.h>
-#include "settings.h"
+#include "../stones/settings.h"
+#include "../stones/sensors.h"
 
-#define MPU 0x68
-#define SDA_PIN 10
-#define SCL_PIN 8
 
-int16_t readAX() {
-  Wire.beginTransmission(MPU);
-  Wire.write(0x3B);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 2, true);
-  return (Wire.read() << 8 | Wire.read());
-}
-
-int16_t readAY() {
-  Wire.beginTransmission(MPU);
-  Wire.write(0x3D);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 2, true);
-  return (Wire.read() << 8 | Wire.read());
-}
-
-int16_t readAZ() {
-  Wire.beginTransmission(MPU);
-  Wire.write(0x3F);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 2, true);
-  return (Wire.read() << 8 | Wire.read());
-}
-
-int16_t readGZ() {
-  Wire.beginTransmission(MPU);
-  Wire.write(0x47);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 2, true);
-  return (Wire.read() << 8 | Wire.read());
-}
-
-// take 20 averaged readings
-float avgAX() { long s=0; for(int i=0;i<20;i++){s+=readAX();delay(10);} return s/20.0; }
-float avgAY() { long s=0; for(int i=0;i<20;i++){s+=readAY();delay(10);} return s/20.0; }
-float avgAZ() { long s=0; for(int i=0;i<20;i++){s+=readAZ();delay(10);} return s/20.0; }
-float avgGZ() { long s=0; for(int i=0;i<20;i++){s+=readGZ();delay(10);} return s/20.0; }
 
 void printMenu() {
   Serial.println();
@@ -82,7 +43,7 @@ void setup() {
   Serial.begin(115200);
   delay(3000);
 
-  Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.begin(PIN_SDA, PIN_SCL);
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x1B);
   Wire.write(0x08);

@@ -6,6 +6,7 @@
 #define PIN_MOTOR     2
 #define PIN_SDA       10
 #define PIN_SCL       8
+#define BOOT_BUTTON_PIN 9
 
 // motor
 #define MOTOR_FREQ       5000
