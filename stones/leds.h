@@ -69,61 +69,72 @@ void clearLED() {
   pixels.show();
 }
 
-// Gently pulse an LED with a breathing animation for a time limit
-// If the direction is tilted strongly (checkTilt), performs a full ramp and returns true
-// Otherwise, animates breathing until time runs out and returns false
-// This is used in the game to both give instructions and detect player input
-// Will exit immediately if boot button is pressed during animation
+// Wait to see if the boot button is held for a full LONG_PRESS_TIME.
+// Called immediately after detecting a press during gameplay.
+// Sets shutdownRequested = true if the threshold is reached.
+static void _handleButtonPressDuringGame() {
+  unsigned long pressStart = millis();
+  while (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+    if (millis() - pressStart >= LONG_PRESS_TIME) {
+      shutdownRequested = true;
+      return;
+    }
+    delay(16);
+  }
+  // Released before 2s - not a shutdown, just a missed move
+}
+
+// Gently pulse an LED with a breathing animation for a time limit.
+// If the player tilts in the correct direction, performs a haptic ramp and returns true.
+// If time runs out, returns false.
+// If the boot button is held for LONG_PRESS_TIME, sets shutdownRequested and returns false.
 bool ledBreathe(int led, unsigned long timeLimit) {
   int r, g, b;
   getColour(led, r, g, b);
-  
+
   unsigned long start = millis();
-  float period = timeLimit * 0.8;  // Breathing cycle time
+  float period = timeLimit * 0.8;
 
   while (millis() - start < timeLimit) {
-    
-    // Check if boot button pressed - interrupt animation immediately
-    if (checkBootButtonLongPress()) {
+
+    // Interrupt immediately on any button press; wait to see if it's a long hold
+    if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
       motorOff();
       clearLED();
-      return false;  // Exit early
+      _handleButtonPressDuringGame();
+      return false;
     }
-    
+
     // Check if player tilted in the correct direction
-    // If so, do a full bright ramp and return success
     if (checkTilt(led)) {
-      // Smooth 1-second sine wave ramp up then down
       for (int i = 0; i < 60; i++) {
         float phase = (float)i / 60.0f;
-        float s = sin(phase * PI);  // Half sine: goes from 0 to 1 to 0
-        int buzzPower = (int)(s * 180);
-        
-        motorBuzz(buzzPower);  // Motor pulses in sync with brightness
+        float s = sin(phase * PI);
+        motorBuzz((int)(s * 180));
         pixels.clear();
         pixels.setPixelColor(led, pixels.Color(r, g, b));
         pixels.setBrightness(255);
         pixels.show();
-        delay(16);  // 60 frames * 16ms ≈ 1 second
-        
-        // Check for button interrupt during ramp
-        if (checkBootButtonLongPress()) {
+        delay(16);
+
+        if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
           motorOff();
           clearLED();
+          _handleButtonPressDuringGame();
           return false;
         }
       }
       motorOff();
       clearLED();
       delay(300);
-      return true;  // Success!
+      return true;
     }
 
-    // Not tilted yet - gentle sine pulse to guide the player
+    // Gentle sine pulse to guide the player
     unsigned long elapsed = millis() - start;
     float phase = (float)(elapsed % (unsigned long)period) / period;
-    float s = sin(phase * TWO_PI);  // Full sine wave: smooth cycle
-    float brightness = 8.0f + max(0.0f, s * 22.0f);  // Brightness ranges 8-30
+    float s = sin(phase * TWO_PI);
+    float brightness = 8.0f + max(0.0f, s * 22.0f);
 
     pixels.clear();
     pixels.setPixelColor(led, pixels.Color(
@@ -136,7 +147,6 @@ bool ledBreathe(int led, unsigned long timeLimit) {
     delay(16);
   }
 
-  // Time ran out without successful tilt
   motorOff();
   clearLED();
   return false;
