@@ -143,50 +143,54 @@ void loop() {
   waitForStartup();
   waitStill();
 
-  int faults = 0;
-  int score = 0;
-  unsigned long timeLimit = TIME_MAX;
+  // Keep playing new games until a manual shutdown - game over just restarts
+  while (true) {
+    int faults = 0;
+    int score = 0;
+    unsigned long timeLimit = TIME_MAX;
 
-  Serial.println("--- new game ---");
-  delay(1000);
+    Serial.println("--- new game ---");
+    delay(1000);
 
-  while (faults < MAX_LIVES) {
-    int gesture = random(4);
-    bool correct = false;
+    while (faults < MAX_LIVES) {
+      int gesture = random(4);
+      bool correct = false;
 
-    Serial.print("gesture: "); Serial.print(gesture);
-    Serial.print(" faults: "); Serial.print(faults);
-    Serial.print(" score: "); Serial.println(score);
+      Serial.print("gesture: "); Serial.print(gesture);
+      Serial.print(" faults: "); Serial.print(faults);
+      Serial.print(" score: "); Serial.println(score);
 
-    switch (gesture) {
-      case 0: correct = ledBreathe(LED_LEFT,   timeLimit); break;
-      case 1: correct = ledBreathe(LED_RIGHT,  timeLimit); break;
-      case 2: correct = ledBreathe(LED_TOP,    timeLimit); break;
-      case 3: correct = ledBreathe(LED_BOTTOM, timeLimit); break;
-    }
-
-    // Button was held for 2s during gameplay - shut down
-    if (shutdownRequested) {
-      shutdownRequested = false;
-      Serial.println("shutdown requested");
-      runShutdown();
-      return;  // loop() restarts → waitForStartup()
-    }
-
-    if (correct) {
-      score++;
-      if (score % 2 == 0) {
-        timeLimit = max((unsigned long)TIME_MIN, (unsigned long)(timeLimit * 0.9));
+      switch (gesture) {
+        case 0: correct = ledBreathe(LED_LEFT,   timeLimit); break;
+        case 1: correct = ledBreathe(LED_RIGHT,  timeLimit); break;
+        case 2: correct = ledBreathe(LED_TOP,    timeLimit); break;
+        case 3: correct = ledBreathe(LED_BOTTOM, timeLimit); break;
       }
-      Serial.print("correct! score: "); Serial.println(score);
-    } else {
-      faults++;
-      Serial.print("fault: "); Serial.println(faults);
-      if (faults >= MAX_LIVES) {
-        ledGameOver();
-        Serial.print("game over. score: "); Serial.println(score);
-        delay(3000);
+
+      // Button held 2s - shut down and go dormant
+      if (shutdownRequested) {
+        shutdownRequested = false;
+        Serial.println("shutdown requested");
+        runShutdown();
+        return;  // loop() restarts → waitForStartup()
+      }
+
+      if (correct) {
+        score++;
+        if (score % 2 == 0) {
+          timeLimit = max((unsigned long)TIME_MIN, (unsigned long)(timeLimit * 0.9));
+        }
+        Serial.print("correct! score: "); Serial.println(score);
+      } else {
+        faults++;
+        Serial.print("fault: "); Serial.println(faults);
+        if (faults >= MAX_LIVES) {
+          ledGameOver();
+          Serial.print("game over. score: "); Serial.println(score);
+          delay(3000);
+        }
       }
     }
+    // Game over - loop back and start a fresh game automatically
   }
 }
