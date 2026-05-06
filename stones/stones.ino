@@ -114,11 +114,13 @@ void setup() {
   pinMode(PIN_MOTOR, OUTPUT);
   digitalWrite(PIN_MOTOR, LOW);
 
-  Serial.begin(115200);
-  delay(2000);
-
+  // Attach LEDC before the serial delay so the motor pin is under PWM
+  // control (duty 0) from the very start, with no window for a glitch.
   ledcAttach(PIN_MOTOR, MOTOR_FREQ, MOTOR_RESOLUTION);
   ledcWrite(PIN_MOTOR, 0);
+
+  Serial.begin(115200);
+  delay(2000);
 
   Wire.begin(PIN_SDA, PIN_SCL);
   Wire.beginTransmission(MPU_ADDR);
