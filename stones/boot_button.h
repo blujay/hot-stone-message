@@ -9,6 +9,7 @@
 // Detects long-press on the ESP32-C3 boot button (GPIO 9)
 // Used for startup and shutdown of the game
 //
+//
 // Button behavior:
 // - Long-press (> 1.5 seconds) in OFF state: starts the game
 // - Long-press (> 1.5 seconds) in RUNNING state: stops and enters deep sleep
